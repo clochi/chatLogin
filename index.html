@@ -161,13 +161,11 @@
       function verificarFace(r){
         switch (r.status){
           case 'not_authorized':
-            $('#m, button').prop('disabled', false);
-            $('#m').focus();
+            $('#m, button').prop('disabled', true);
             alert('Debes autorizar la aplicación');
             break;
           case 'unknown':
-            $('#m, button').prop('disabled', false);
-            $('#m').focus();
+            $('#m, button').prop('disabled', true);
             alert('Debes loguearte para poder usar el chat');
             break;
           case 'connected':
