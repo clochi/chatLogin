@@ -1,0 +1,196 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Chat fibroso!</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Tahoma, Helvetica, Arial;}
+      .form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      .form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+      .form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+      #messages { list-style-type: none; margin: 0; padding: 20px; overflow-y: auto; width: 80%; display: inline-block; float: left;}
+      #messages li { padding: 5px 10px; transition: all 3s}
+      #conectadosCont {width: 20%; display: inline-block; padding: 20px; margin-top: 20px;}
+      #conectadosCont #conectadosLista li{list-style: none;}
+      /*#messages li:nth-child(odd) { background: #F5F5F5; }*/
+      .nick{position: absolute; top: 10px; right: 10px}
+      #nick{border:none;}
+      #nick:focus{outline:none}
+      .fb-login-button{display: none;}
+      .escribiendo{position: fixed; bottom: 41px; font-style:italic}
+    </style>
+  </head>
+  <body>
+    <div class="fb-login-button" data-max-rows="1" data-size="large" data-show-faces="false" data-auto-logout-link="true" onlogin="verificarLogin()"></div>
+
+    <!--<div class="nick">Nick: <form action="" class="formNick" style="display: inline-block"><input id="nick" autocomplete="off" type="text" placeholder="Tu nombre :)"></form></div>-->
+    <ul id="messages"><p id="escribiendo" class="escribiendo"></p></ul>
+    <div id="conectadosCont"><h4>Conectados:</h4><ul id="conectadosLista"></ul></div>
+    <form action="" class="form">
+      <input id="m" autocomplete="off" /><button>Enviar</button>
+    </form>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+
+    var chat = document.getElementById('messages');
+    window.addEventListener('load', function(){
+      document.getElementById('messages').style.height = window.innerHeight - 41+'px';
+    });
+    window.addEventListener('resize', function(){
+      document.getElementById('messages').style.height = window.innerHeight - 41+'px';
+    });
+    
+    $('#m, button').prop('disabled', true);
+      var socket = io();
+      var usersData = {};
+      var user = '';
+      var escribientes = [];
+      var typing = false;
+      function getDatos(res, devolver){
+        get = {};
+        FB.api('/me', 'get', {fields: 'id, name, picture.width(200)'}, function(datos){
+          console.log(datos);
+          get = datos;
+          get.picture = datos.picture.data.url;
+          devolver(get);
+        });
+      }
+
+      socket.on('ingreso', function(msg){
+
+        $('#messages').append($('<li style="color: blue; font-style: italic">').text(msg));
+      });
+      socket.on('salida', function(msg){
+        $('#messages').append($('<li style="color: red; font-style: italic">').text(msg));
+      });
+
+      socket.on('conectados', function(usuarios){
+        usersData.name = usuarios;
+        $('#conectadosLista').html('');
+        for(var i = 0; i < usuarios.length; i++){
+          $('#conectadosLista').append($('<li>').html(usuarios[i]));
+        }
+
+      });
+
+      $('.form').submit(function(){
+        if ($('#m').val() === ''){
+          return false;
+        }
+        socket.emit('chat message', $('#m').val());
+        //$('#messages').append($('<li style="background-color: cornsilk">').text($('#m').val()));
+        $('#messages').append($('<li style="background-color: cornsilk"><img src="'+ user.picture +'" style="width: 80px; height: 80px; border-radius: 50%; vertical-align: middle; margin-right: 10px">'+ $('#m').val() +'</li>'));
+        setTimeout(function(){
+          $('#messages').children('li').css('background-color','white');
+        },100);
+        $('#m').val('');
+        chat.scrollTop = chat.scrollHeight;
+        return false;
+      });
+
+      $('.form').keypress(function(){
+        socket.emit('escribiendo', 'está escribiendo ...');
+      });
+
+      socket.on('escribiendo', function(escribiendo){
+        var enviarEscribiendo = document.getElementById('escribiendo');
+        var i = 0;
+        while(escribientes[i] != escribiendo.quien & escribientes[i] < escribientes.length){
+
+          i++;
+        }
+
+        function borrarEscribiendo(user){
+          var contEscribiendo = enviarEscribiendo;
+          var escrib = escribientes;
+          var nombre = user.quien;
+          setTimeout(function(){
+            contEscribiendo.innerHTML = "";
+            escribientes.splice(escribientes.indexOf(nombre), 1);
+          }, 3000);
+        }
+
+        if (escribientes[i] != escribiendo.quien){
+          escribientes.push(escribiendo.quien);
+          enviarEscribiendo.innerHTML = escribientes + " " + escribiendo.esc;
+        }
+        borrarEscribiendo(escribiendo);
+        if (escribientes.length){
+          enviarEscribiendo.innerHTML = escribientes + " " + escribiendo.esc;
+        }
+      });
+
+      socket.on('chat message', function(msg){
+        //var nombre = msg.replace(/\s.*/, '');
+        //var mensaje = msg.substr(nombre.length);
+        $('#messages').append($('<li><img src="'+msg.foto+'" style="width: 80px; height: 80px; border-radius: 50%; vertical-align: middle; margin-right: 10px"><p style="font-weight: bold; color: '+msg.color+'; display: inline-block">'+msg.usuario+': </p><p style="display: inline-block">&nbsp;'+msg.mensaje+'</p></li>'));
+        chat.scrollTop = chat.scrollHeight;
+      });
+
+    </script>
+
+    <script>
+      window.fbAsyncInit = function() {
+        FB.init({
+          appId      : '291486951201254',
+          xfbml      : true,
+          version    : 'v2.6'
+        });
+      };
+
+      (function(d, s, id){
+         var js, fjs = d.getElementsByTagName(s)[0];
+         if (d.getElementById(id)) {return;}
+         js = d.createElement(s); js.id = id;
+         js.src = "//connect.facebook.net/es_LA/sdk.js";
+         fjs.parentNode.insertBefore(js, fjs);
+       }(document, 'script', 'facebook-jssdk'));
+
+      setTimeout(function(){
+        verificarLogin();
+    }, 500);
+
+      function verificarLogin(){
+        FB.getLoginStatus(function(res){
+          console.log(res);
+          verificarFace(res);
+        });
+      }
+      function verificarFace(r){
+        switch (r.status){
+          case 'not_authorized':
+            $('#m, button').prop('disabled', false);
+            $('#m').focus();
+            alert('Debes autorizar la aplicación');
+            break;
+          case 'unknown':
+            $('#m, button').prop('disabled', false);
+            $('#m').focus();
+            alert('Debes loguearte para poder usar el chat');
+            break;
+          case 'connected':
+            getDatos(r, function(res){
+              socket.emit('nick', res, function(res){
+                if (res.band){
+                  FB.logout(function(response){
+                    alert('No puedes ingresar con el mismo usuario :)');
+                  });
+                }else{
+                  user = res.dat;
+                  $('#m, button').prop('disabled', false);
+                  $('#m').focus();
+                }
+              });
+              
+            });
+            break;
+          default:
+            //controlar bien este :D
+        }
+      }
+
+    </script>
+  </body>
+</html>
